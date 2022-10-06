@@ -1,0 +1,86 @@
+name: CD-manual-make-release-hotfix-deploy
+# 1. manual trigger this workflow: create a release branch and deploy to Dev and Staging
+# 2. any new commits to the release branch: will also deploy to Dev and Staging
+# 3. create hotfix branch steps: (will not trigger Dev and Staging deployment)
+#    a. switch to prod-branch: main, master
+#    b. input -h
+#    c. manual trigger this workflow
+on:
+  push:
+    branches:
+      - release/*
+      - hotfix/*
+  workflow_dispatch:
+    inputs:
+      release-version:
+        description:
+          Semantic version -M (major) -m (minor) -p (patch) -h (hotfix patch)
+          Please switch branch if you want to create hotfix branch
+        required: true
+        default: '-p'
+
+jobs:
+
+
+  build-deploy:
+    if: success()
+#    needs: [ run-unit-tests ]
+    runs-on: ${{ matrix.os }}
+    environment:
+      name: Staging
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.8"]
+        dev-branch:
+          - develop
+        prod-branch:
+          - main
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Get the new release branch name
+        if: ${{ (contains(github.event_name, 'workflow_dispatch')) || false }}
+        shell: bash
+        run: |
+          chmod +x ./.github/scripts/new-release-version.sh
+          echo "NEW_BRANCH_NAME=$(./.github/scripts/new-release-version.sh ${{ github.event.inputs.release-version }})" >> $GITHUB_ENV
+
+      - name: Create a release or hotfix branch
+        if: ${{ (contains(github.event_name, 'workflow_dispatch')) || false }}
+        uses: peterjgrainger/action-create-branch@v2.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          branch: ${{ env.NEW_BRANCH_NAME }}
+
+      - name: Get the current branch name if the new commit pushed
+        if: ${{ (contains(github.event_name, 'push')) }}
+        run: |
+          echo "NEW_BRANCH_NAME=${{github.ref_name}}" >> $GITHUB_ENV
+
+      - name: Create pull request
+        if: success()
+        uses: ./.github/actions/create-pull-request
+        with:
+          event_name: ${{ github.event_name }}
+          ref: ${{ github.ref }}
+          new_branch_name: ${{ env.NEW_BRANCH_NAME }}
+          dev_branch_name: ${{ matrix.dev-branch }}
+          prod_branch_name: ${{ matrix.prod-branch }}
+          user_name: ${{ github.actor }}
+          secret_input: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Distribution files Dev V1
+        if: ${{ startsWith(env.NEW_BRANCH_NAME, 'release/') || false }}
+        run: |
+          echo dev v1
+
+
+
+      - name: Create Distribution files Staging V1
+        if: ${{ startsWith(env.NEW_BRANCH_NAME, 'release/') || false }}
+        run: |
+          echo dev v1
+

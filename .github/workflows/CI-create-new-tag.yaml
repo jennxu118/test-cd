@@ -1,0 +1,47 @@
+name: CI-create-a-new-release-and-tag
+# auto create a new tag when pr to main branch closed
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+
+  release-tag:
+#    needs: [ run-unit-tests ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-20.04 ]
+        prod-branch:
+          - main
+    if: github.event.pull_request.merged == true # only merged pull requests must trigger this job
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Extract version from branch name (for release branches)
+        if: startsWith(github.event.pull_request.head.ref, 'release/')
+        run: |
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          VERSION=${BRANCH_NAME#release/}
+
+          echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Extract version from branch name (for hotfix branches)
+        if: startsWith(github.event.pull_request.head.ref, 'hotfix/')
+        run: |
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          VERSION=${BRANCH_NAME#hotfix/}
+
+          echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          prod_branch: ${{ matrix.prod-branch }}
+        run: |
+          gh release create "${{ env.RELEASE_VERSION }}" -t "release/${{ env.RELEASE_VERSION }}" --target ${{ env.prod_branch }}
+
+

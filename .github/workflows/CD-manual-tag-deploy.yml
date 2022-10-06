@@ -1,0 +1,58 @@
+name: CD-manual-tag-deploy
+# manual deploy specific tag to dev and staging
+# manual deploy specific tag to Prod by approval from an assigned person
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'The environment to deploy to'
+        type: choice
+        required: true
+        options:
+          - Dev
+          - Staging
+          - Prod
+        default: Prod
+
+jobs:
+
+  build-deploy-dev-staging:
+    if: ${{ contains(inputs.environment, 'Dev') || contains(inputs.environment, 'Staging')}}
+#    needs: [ run-unit-tests ]
+    runs-on: ${{ matrix.os }}
+    environment:
+      name: Staging
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.8"]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Create Distribution files Dev V1
+        if: ${{ startsWith(env.NEW_BRANCH_NAME, 'release/') || false }}
+        run: |
+          echo Dev v1
+
+      - name: Create Distribution files Staging V1
+        if: ${{ startsWith(env.NEW_BRANCH_NAME, 'release/') || false }}
+        run: |
+          echo Staging v1
+
+  build-deploy-prod:
+    if: ${{ contains(inputs.environment, 'Prod') }}
+    needs: [ run-unit-tests ]
+    runs-on: ${{ matrix.os }}
+    environment:
+      name: Prod
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.8"]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Create Distribution files Prod V1
+        if: ${{ contains(inputs.environment, 'Prod') }}
+        run: |
+          echo prod v1
