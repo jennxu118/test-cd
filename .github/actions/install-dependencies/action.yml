@@ -1,0 +1,8 @@
+name: 'Install Dependencies'
+description: 'Installs dev Dependencies'
+runs:
+  using: "composite"
+  steps:
+    - name: Install Project Dependencies
+      run: make install-dev
+      shell: bash
